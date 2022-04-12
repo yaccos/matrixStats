@@ -18,6 +18,7 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
                   R_xlen_t *rows, R_xlen_t nrows, int rowsHasNA,
                   R_xlen_t *cols, R_xlen_t ncols, int colsHasNA,
                   int narm, int hasna, int byrow, double *ans) {
+  const int idxsHasNA = rowsHasNA || colsHasNA;
   R_xlen_t ii, jj, idx;
   R_xlen_t *colOffset;
   X_C_TYPE value;
@@ -41,7 +42,7 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
     colOffset = (R_xlen_t *) R_alloc(ncols, sizeof(R_xlen_t));
     if (byrow) {
       for (jj=0; jj < ncols; jj++)
-        colOffset[jj] = R_INDEX_OP(cols[jj], *, nrow, colsHasNA, 0);
+        colOffset[jj] = R_INDEX_OP(cols[jj], *, nrow, idxsHasNA, 0);
     } else {
       for (jj=0; jj < ncols; jj++)
         colOffset[jj] = cols[jj];
@@ -57,17 +58,17 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
        */
       rowIdx = byrow ? ii : R_INDEX_OP(ii, *, ncol, 0, 0);
     } else {
-      rowIdx = byrow ? rows[ii] : R_INDEX_OP(rows[ii], *, ncol, rowsHasNA, 0);
+      rowIdx = byrow ? rows[ii] : R_INDEX_OP(rows[ii], *, ncol, idxsHasNA, 0);
     }
     sum = 0.0;
 
     for (jj=0; jj < ncols; jj++) {
       if (nocols) {
-        idx = R_INDEX_OP(rowIdx, +, byrow ? jj*nrow : jj, rowsHasNA, 0);
+        idx = R_INDEX_OP(rowIdx, +, byrow ? jj*nrow : jj, idxsHasNA, 0);
       } else {
-        idx = R_INDEX_OP(rowIdx, +, colOffset[jj], rowsHasNA, colsHasNA);
+        idx = R_INDEX_OP(rowIdx, +, colOffset[jj], idxsHasNA, idxsHasNA);
       }
-      value = R_INDEX_GET(x, idx, X_NA, rowsHasNA || colsHasNA);
+      value = R_INDEX_GET(x, idx, X_NA, idxsHasNA);
   
       #if X_TYPE == 'i'
           if (!X_ISNAN(value)) {
