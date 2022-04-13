@@ -11,6 +11,8 @@
 
 #include "000.templates-types.h"
 
+#define X_C_TYPE double
+
 
 /*
  logSumExp_double(x, by=0, xx=NULL):

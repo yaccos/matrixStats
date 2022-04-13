@@ -28,21 +28,25 @@ int anyMissing_internal(SEXP x,
 
   switch (TYPEOF(x)) {
     case REALSXP:
+#define X_C_TYPE double
       xdp = REAL(x);
       CHECK_MISSING(ISNAN(R_INDEX_GET(xdp, ((idxs == NULL) ? (ii) : idxs[ii]), NA_REAL, idxsHasNA)));
       break;
-
+#undef X_C_TYPE
     case INTSXP:
+#define X_C_TYPE int
       xip = INTEGER(x);
       CHECK_MISSING(R_INDEX_GET(xip, ((idxs == NULL) ? (ii) : idxs[ii]), NA_INTEGER, idxsHasNA) == NA_INTEGER);
       break;
-
+#undef X_C_TYPE
     case LGLSXP:
+#define X_C_TYPE int
       xlp = LOGICAL(x);
       CHECK_MISSING(R_INDEX_GET(xlp, ((idxs == NULL) ? (ii) : idxs[ii]), NA_LOGICAL, idxsHasNA) == NA_LOGICAL);
       break;
-
+#undef X_C_TYPE
     case CPLXSXP:
+#define X_C_TYPE Rcomplex
       xcp = COMPLEX(x);
 #ifdef IDXS_TYPE
       /*
@@ -54,7 +58,7 @@ int anyMissing_internal(SEXP x,
       CHECK_MISSING(ISNAN(xcp[ii].r) || ISNAN(xcp[ii].i));
 #endif
       break;
-
+#undef X_C_TYPE
     case STRSXP:
 #ifdef IDXS_TYPE
       CHECK_MISSING((idxsHasNA ? idxs[ii] == NA_R_XLEN_T : 0) || STRING_ELT(x, ((idxs == NULL) ? (ii) : idxs[ii])) == NA_STRING);

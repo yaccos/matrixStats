@@ -154,6 +154,7 @@
 #undef R_INDEX_OP
 #undef R_INDEX_GET
 
-#define R_INDEX_OP(a, OP, b, check_a_NA, check_b_NA) ((check_a_NA ? a == NA_R_XLEN_T : 0) || (check_b_NA ? b == NA_R_XLEN_T : 0) ? NA_R_XLEN_T : (a) OP (b))
-    
-#define R_INDEX_GET(x, i, NA, check_i_NA) ((check_i_NA ? (i) == NA_R_XLEN_T : 0) ? NA : x[(i)])
+#define R_INDEX_OP(a, OP, b, check_a_NA, check_b_NA) ({R_xlen_t _val; if(check_a_NA) {if(a == NA_R_XLEN_T) {_val=NA_R_XLEN_T;}} else if (check_b_NA) {if(b == NA_R_XLEN_T) {_val=NA_R_XLEN_T;}} else {_val = (a) OP (b);} _val;})
+// #define R_INDEX_OP(a, OP, b, check_a_NA, check_b_NA) ((a) OP (b))
+#define R_INDEX_GET(x, i, NA, check_i_NA) ({X_C_TYPE _val; if(check_i_NA) {if(i == NA_R_XLEN_T) {_val=NA;}} else {_val = x[(i)];} _val;})
+// #define R_INDEX_GET(x, i, NA, check_i_NA) (x[(i)])
