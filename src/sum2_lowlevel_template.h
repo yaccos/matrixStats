@@ -20,18 +20,14 @@
     X_TYPE => (X_C_TYPE, X_IN_C)
  */
 #include "000.templates-types.h"
-#include <R_ext/Error.h>
 
 
-double CONCAT_MACROS(sum2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nx,
-                     R_xlen_t *idxs, R_xlen_t nidxs, int idxsHasNA,
-                     int narm) {
   X_C_TYPE value;
   R_xlen_t ii;
   LDOUBLE sum = 0;
 
   for (ii=0; ii < nidxs; ++ii) {
-    value = R_INDEX_GET(x, ((idxs == NULL) ? (ii) : idxs[ii]), X_NA, idxsHasNA);
+    value = R_INDEX_GET(x, ((idxs == NULL) ? (ii) : idxs[ii]), X_NA);
 #if X_TYPE == 'i'
     if (!X_ISNAN(value)) {
       sum += (LDOUBLE)value;
@@ -51,7 +47,6 @@ double CONCAT_MACROS(sum2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nx,
   } /* for (ii ...) */
 
   return (double)sum;
-}
 
 
 /***************************************************************************
