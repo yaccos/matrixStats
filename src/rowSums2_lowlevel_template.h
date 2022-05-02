@@ -33,53 +33,33 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
     if (cols == NULL) { nocols = 1; } else { nocols = 0; }
     if (rows == NULL) { norows = 1; } else { norows = 0; }
     
-    
-    /* Pre-calculate the column offsets */
-    if (nocols) {
-        colOffset = NULL;
-    } else {
-        colOffset = (R_xlen_t *) R_alloc(ncols, sizeof(R_xlen_t));
-        if (byrow) {
-            for (jj=0; jj < ncols; jj++)
-                if(!rowsHasNA && !colsHasNA){
-                    colOffset[jj] = cols[jj] * nrow;
-                }
-                else{
+    if (rowsHasNA || colsHasNA){
+        /* Pre-calculate the column offsets */
+        if (nocols) {
+            colOffset = NULL;
+        } else {
+            colOffset = (R_xlen_t *) R_alloc(ncols, sizeof(R_xlen_t));
+            if (byrow) {
+                for (jj=0; jj < ncols; jj++)
                     colOffset[jj] = R_INDEX_OP(cols[jj], *, nrow,1,1);
-                }
-        } else {
-            for (jj=0; jj < ncols; jj++)
-                colOffset[jj] = cols[jj];
-        }    
-    }
-    
-    for (ii=0; ii < nrows; ii++) {
-        R_xlen_t rowIdx;
-        
-        if (norows) {
-            /* ii and ncols cannot be NA-values, so we do not need R_INDEX_OP */
-            rowIdx = byrow ? ii : ii*ncol;
-        } else {
-            if(!rowsHasNA && !colsHasNA) {
-                rowIdx = byrow ? rows[ii] : rows[ii] * ncol;
-            }
-            rowIdx = byrow ? rows[ii] : R_INDEX_OP(rows[ii], *, ncol,1,1);
-        }
-        sum = 0.0;
-        
-        for (jj=0; jj < ncols; jj++) {
-            if (!rowsHasNA && nocols) {
-                /*
-                 * In this special case, we can eliminate
-                 * the possibility of having NA indicies
-                 */
-                if (byrow) idx = rowIdx + jj*nrow;
-                else idx = rowIdx + jj;
-                value = x[idx];
-            } else if (!rowsHasNA && !colsHasNA && !nocols) {
-                idx = rowIdx + colOffset[jj];
-                value = x[idx];
             } else {
+                for (jj=0; jj < ncols; jj++)
+                    colOffset[jj] = cols[jj];
+            }    
+        }
+        
+        for (ii=0; ii < nrows; ii++) {
+            R_xlen_t rowIdx;
+            
+            if (norows) {
+                /* ii and ncols cannot be NA-values, so we do not need R_INDEX_OP */
+                rowIdx = byrow ? ii : ii*ncol;
+            } else {
+                rowIdx = byrow ? rows[ii] : R_INDEX_OP(rows[ii], *, ncol,1,1);
+            }
+            sum = 0.0;
+            
+            for (jj=0; jj < ncols; jj++) {
                 if (nocols) {
                     if (byrow) idx = R_INDEX_OP(rowIdx, +, jj*nrow,1,1);
                     else idx = R_INDEX_OP(rowIdx, +, jj,1,1);
@@ -87,33 +67,101 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
                     idx = R_INDEX_OP(rowIdx, +, colOffset[jj],1,1);
                 }
                 value = R_INDEX_GET(x, idx, X_NA,1);
-            }
-            
-#if X_TYPE == 'i'
-            if (!X_ISNAN(value)) {
-                sum += (LDOUBLE)value;
-            } else if (!narm) {
-                sum = R_NaReal;
-                break;
-            }
-#elif X_TYPE == 'r'
-            if (!narm) {
-                sum += (LDOUBLE)value;
-                if (jj % 1048576 == 0 && ISNA(sum)) break;
-            } else if (!ISNAN(value)) {
-                sum += (LDOUBLE)value;
-            }
-#endif
-        } /* for (jj ...) */
                 
-                if (sum > DBL_MAX) {
-                    ans[ii] = R_PosInf;
-                } else if (sum < -DBL_MAX) {
-                    ans[ii] = R_NegInf;
+#if X_TYPE == 'i'
+                if (!X_ISNAN(value)) {
+                    sum += (LDOUBLE)value;
+                } else if (!narm) {
+                    sum = R_NaReal;
+                    break;
+                }
+#elif X_TYPE == 'r'
+                if (!narm) {
+                    sum += (LDOUBLE)value;
+                    if (jj % 1048576 == 0 && ISNA(sum)) break;
+                } else if (!ISNAN(value)) {
+                    sum += (LDOUBLE)value;
+                }
+#endif
+            } /* for (jj ...) */
+                    
+                    if (sum > DBL_MAX) {
+                        ans[ii] = R_PosInf;
+                    } else if (sum < -DBL_MAX) {
+                        ans[ii] = R_NegInf;
+                    } else {
+                        ans[ii] = (double)sum;
+                    }
+                    
+                    R_CHECK_USER_INTERRUPT(ii);
+        } /* for (ii ...) */
+    } else {
+        /* Pre-calculate the column offsets */
+        if (nocols) {
+            colOffset = NULL;
+        } else {
+            colOffset = (R_xlen_t *) R_alloc(ncols, sizeof(R_xlen_t));
+            if (byrow) {
+                for (jj=0; jj < ncols; jj++)
+                    colOffset[jj] = cols[jj] * nrow;
+            } else {
+                for (jj=0; jj < ncols; jj++)
+                    colOffset[jj] = cols[jj];
+            }    
+        }
+        
+        for (ii=0; ii < nrows; ii++) {
+            R_xlen_t rowIdx;
+            
+            if (norows) {
+                /* ii and ncols cannot be NA-values, so we do not need R_INDEX_OP */
+                rowIdx = byrow ? ii : ii*ncol;
+            } else {
+                rowIdx = byrow ? rows[ii] : rows[ii] * ncol;
+            }
+            sum = 0.0;
+            
+            for (jj=0; jj < ncols; jj++) {
+                if (nocols) {
+                    /*
+                     * In this special case, we can eliminate
+                     * the possibility of having NA indicies
+                     */
+                    if (byrow) idx = rowIdx + jj*nrow;
+                    else idx = rowIdx + jj;
+                    value = x[idx];
                 } else {
-                    ans[ii] = (double)sum;
+                    idx = rowIdx + colOffset[jj];
+                    value = x[idx];
                 }
                 
-                R_CHECK_USER_INTERRUPT(ii);
-    } /* for (ii ...) */
+#if X_TYPE == 'i'
+                if (!X_ISNAN(value)) {
+                    sum += (LDOUBLE)value;
+                } else if (!narm) {
+                    sum = R_NaReal;
+                    break;
+                }
+#elif X_TYPE == 'r'
+                if (!narm) {
+                    sum += (LDOUBLE)value;
+                    if (jj % 1048576 == 0 && ISNA(sum)) break;
+                } else if (!ISNAN(value)) {
+                    sum += (LDOUBLE)value;
+                }
+#endif
+            } /* for (jj ...) */
+                    
+                    if (sum > DBL_MAX) {
+                        ans[ii] = R_PosInf;
+                    } else if (sum < -DBL_MAX) {
+                        ans[ii] = R_NegInf;
+                    } else {
+                        ans[ii] = (double)sum;
+                    }
+                    
+                    R_CHECK_USER_INTERRUPT(ii);
+        } /* for (ii ...) */
+    }
+    
 }
