@@ -22,18 +22,17 @@
 void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t ncol, 
                   R_xlen_t *rows, R_xlen_t nrows, int rowsHasNA,
                   R_xlen_t *cols, R_xlen_t ncols, int colsHasNA,
-                  int narm, int hasna, int byrow, double *ans) {
+                  int narm, int hasna, int byrow, double *restrict ans) {
     R_xlen_t ii, jj, idx;
     R_xlen_t colOffset;
     X_C_TYPE value;
     int nocols, norows;
-    /* Use long double (if available) for higher precision */
     /* NOTE: SIMD does not long doubles - in case we ever go there */
     /* NOTE: For maintaining a tidy codebase, we bring variables for both
-     * colsums and rowsums in scope, but only one of them will ever be used
+     * colsums and rowsums (accumuated directly in answer) in scope,
+     * but only one of them will ever be used
      * at given call to the function */
-    long double *rowSum;
-    long double colSum;
+    double colSum;
     
     /* If there are no missing values, don't try to remove them. */
     if (hasna == FALSE)
@@ -43,16 +42,17 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
     if (rows == NULL) { norows = 1; } else { norows = 0; }
     
     if (byrow) {
-      rowSum = R_allocLD(nrows);
       /*
-       * If nrows == 0, a NULL pointer is returned.
+       * Since we are accumulating directly into the answer array, we have to
+       * initialize its elements to zero
+       */
+      /*
+       * If nrows == 0, we may have a NULL pointer.
        * Calling memset() with a NULL pointer is apparently undefined behavior,
        * so we must guard for it 
        */
-      if (nrows > 0) {
-        /* Ensures that all elements of array are intialized to zero,
-         * this is VERY important */
-        memset(rowSum, 0, nrows*  sizeof(long double));
+      if (nrows > 0 ) {
+        memset(ans,0, nrows*sizeof(double));
       }
       
     }
@@ -91,13 +91,13 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
 #if X_TYPE == 'i'
         if (byrow) {
           if (!X_ISNAN(value)) {
-            rowSum[ii] += (long double)value;
+            ans[ii] += (double)value;
           } else if (!narm) {
-            rowSum[ii] = R_NaReal;
+            ans[ii] = R_NaReal;
           }
         } else {
           if (!X_ISNAN(value)) {
-            colSum += (long double)value;
+            colSum += (double)value;
           } else if (!narm) {
             colSum = R_NaReal;
             /* This optimization is harder to make for row sums
@@ -109,15 +109,15 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
 #elif X_TYPE == 'r'
         if (byrow) {
           if (!narm) {
-            rowSum[ii] += (long double)value;
+            ans[ii] += (double)value;
           } else if (!ISNAN(value)) {
-            rowSum[ii] += (long double)value;
+            ans[ii] += (double)value;
             }
         } else {
           if (!narm) {
-            colSum += (long double)value;
+            colSum += (double)value;
           } else if (!ISNAN(value)) {
-            colSum += (long double)value;
+            colSum += (double)value;
               if (jj % 1048576 == 0 && ISNA(colSum)) {
                 break;
               }
@@ -139,15 +139,4 @@ void CONCAT_MACROS(rowSums2, X_C_SIGNATURE)(X_C_TYPE *x, R_xlen_t nrow, R_xlen_t
       
       } /* for (jj ...) */ 
         
-      if (byrow) {
-        for (ii=0; ii < nrows; ii++) {
-          if (rowSum[ii] > DBL_MAX) {
-            ans[ii] = R_PosInf;
-          } else if (rowSum[ii] < -DBL_MAX) {
-            ans[ii] = R_NegInf;
-          } else {
-            ans[ii] = (double)rowSum[ii];
-          }
-        }
-      }
 }
